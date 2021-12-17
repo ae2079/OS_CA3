@@ -1,14 +1,21 @@
 #include <iostream>
 #include <unistd.h>
 #include <fstream>
+#include <vector>
+#include <cstring>
+#include <string>
 
 using std::cout;
 using std::endl;
 using std::ifstream;
 using std::ofstream;
 
+using namespace std;
+
+const string output_address = "output.bmp";
+
 #pragma pack(1)
-#pragma once
+// #pragma once
 
 typedef int LONG;
 typedef unsigned short WORD;
@@ -71,34 +78,70 @@ bool fillAndAllocate(char *&buffer, const char *fileName, int &rows, int &cols, 
   }
 }
 
-void getPixlesFromBMP24(int end, int rows, int cols, char *fileReadBuffer)
+void getPixlesFromBMP24(int end, int rows, int cols, char *fileReadBuffer, vector<vector<vector<int>>> &image)
 {
   int count = 1;
   int extra = cols % 4;
   for (int i = 0; i < rows; i++)
   {
     count += extra;
-    for (int j = cols - 1; j >= 0; j--)
+    for (int j = cols - 1; j >= 0; j--){
       for (int k = 0; k < 3; k++)
       {
+        ////////////////
+        // if(end-count < 0){
+        //   cout << "file " << end-count << " , " << i << " , "<< j << endl;
+        // }
+        /////////////////////////
         switch (k)
         {
         case 0:
-          // fileReadBuffer[end - count] is the red value
+          image[i][j][0] = 128 + int(fileReadBuffer[end - count]);
+          //////////
+          // cout << "file " << end-count << " , " << i << " , "<< j << " : " << 128 + int(fileReadBuffer[end - count]);
+          // cout << " but a : " << a[0] << endl;
+          /////////////
           break;
         case 1:
-          // fileReadBuffer[end - count] is the green value
+          image[i][j][1] = 128 + int(fileReadBuffer[end - count]);
           break;
         case 2:
-          // fileReadBuffer[end - count] is the blue value
+          image[i][j][2] = 128 + int(fileReadBuffer[end - count]);
           break;
-        // go to the next position in the buffer
         }
+        // go to the next position in the buffer
+        count++;
       }
+    }
   }
+  /////////////////
+
+  // int r, g, b;
+  // for(int i = 0; i < rows; i++){
+  //   for(int j = 0; j < cols; j++){
+  //     if(image[i][j][0] != r){
+  //       r = image[i][j][0];
+  //       cout << "vec " << i << " , "<< j << " : " << image[i][j][0]
+  //       << " , " << image[i][j][1] << " , " << image[i][j][2] << endl;
+  //     } 
+  //     if(image[i][j][1] != g){
+  //       g = image[i][j][1];
+  //       cout << "vec " << i << " , "<< j << " : " << image[i][j][0]
+  //       << " , " << image[i][j][1] << " , " << image[i][j][2] << endl;
+  //     }
+  //     if(image[i][j][2] != b){
+  //       b = image[i][j][2];
+  //       cout << "vec " << i << " , "<< j << " : " << image[i][j][0]
+  //       << " , " << image[i][j][1] << " , " << image[i][j][2] << endl;
+  //     }
+  //   }
+  // }
+
+  /////////////////
+  //return image;
 }
 
-void writeOutBmp24(char *fileBuffer, const char *nameOfFileToCreate, int bufferSize)
+void writeOutBmp24(char *fileBuffer, const char *nameOfFileToCreate, int bufferSize, vector<vector<vector<int>>> &image)
 {
   std::ofstream write(nameOfFileToCreate);
   if (!write)
@@ -117,16 +160,17 @@ void writeOutBmp24(char *fileBuffer, const char *nameOfFileToCreate, int bufferS
         switch (k)
         {
         case 0:
-          // write red value in fileBuffer[bufferSize - count]
+          fileBuffer[bufferSize - count] = image[i][j][0] - 128;
           break;
         case 1:
-          // write green value in fileBuffer[bufferSize - count]
+          fileBuffer[bufferSize - count] = image[i][j][1] - 128;
           break;
         case 2:
-          // write blue value in fileBuffer[bufferSize - count]
+          fileBuffer[bufferSize - count] = image[i][j][2] - 128;
           break;
-        // go to the next position in the buffer
         }
+        // go to the next position in the buffer
+        count++;
       }
   }
   write.write(fileBuffer, bufferSize);
@@ -143,9 +187,75 @@ int main(int argc, char *argv[])
     return 1;
   }
 
+  vector<int> a(3, 0);
+  vector<vector<int>> temp(rows, a);
+  //vector<vector<int*>> image(cols, temp);
+  vector<vector<vector<int>>> image(cols, temp);
+  // for(int i = 0; i < rows; i++){
+  //   vector<int*> temp;
+  //   for(int j = 0; j < cols; j++){
+  //     int a[3]= {};
+  //     temp.push_back(a); 
+  //   }
+  //   image.push_back(temp);
+  // }
+
+  ///////////////////////
+  // cout << rows << " , " << cols << endl;
+  // cout << bufferSize << endl;
+  ////////////////////
+
   // read input file
+  //int end = rows*cols*3;
+  getPixlesFromBMP24(bufferSize, rows, cols, fileBuffer, image);
+
+  ///////////////
+  // for(int i = 0; i < rows; i++){
+  //   for(int j = 0; j < cols; j++){
+  //     cout << "vec " << i << " , "<< j << " : " << image[i][j][0]
+  //     << " , " << image[i][j][1] << " , " << image[i][j][2] << endl; 
+  //   }
+  // }
+  // int r, g, b;
+  // for(int i = 0; i < rows; i++){
+  //   for(int j = 0; j < cols; j++){
+  //     if(image[i][j][0] != r){
+  //       r = image[i][j][0];
+  //       cout << "vec " << i << " , "<< j << " : " << image[i][j][0]
+  //       << " , " << image[i][j][1] << " , " << image[i][j][2] << endl;
+  //     } 
+  //     if(image[i][j][1] != g){
+  //       g = image[i][j][1];
+  //       cout << "vec " << i << " , "<< j << " : " << image[i][j][0]
+  //       << " , " << image[i][j][1] << " , " << image[i][j][2] << endl;
+  //     }
+  //     if(image[i][j][2] != b){
+  //       b = image[i][j][2];
+  //       cout << "vec " << i << " , "<< j << " : " << image[i][j][0]
+  //       << " , " << image[i][j][1] << " , " << image[i][j][2] << endl;
+  //     }
+  //   }
+  // }
+
+
+  /////////////////
+
+
+
   // apply filters
+
+
+
+
+
   // write output file
+  int n = output_address.length() + 1;
+  char out_file[n];
+  strcpy(out_file, output_address.c_str());
+  writeOutBmp24(fileBuffer, out_file, bufferSize, image);
+
+
+
 
   return 0;
 }
