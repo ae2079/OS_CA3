@@ -85,22 +85,13 @@ void getPixlesFromBMP24(int end, int rows, int cols, char *fileReadBuffer, vecto
   for (int i = 0; i < rows; i++)
   {
     count += extra;
-    for (int j = cols - 1; j >= 0; j--){
+    for (int j = cols - 1; j >= 0; j--)
       for (int k = 0; k < 3; k++)
       {
-        ////////////////
-        // if(end-count < 0){
-        //   cout << "file " << end-count << " , " << i << " , "<< j << endl;
-        // }
-        /////////////////////////
         switch (k)
         {
         case 0:
           image[i][j][0] = 128 + int(fileReadBuffer[end - count]);
-          //////////
-          // cout << "file " << end-count << " , " << i << " , "<< j << " : " << 128 + int(fileReadBuffer[end - count]);
-          // cout << " but a : " << a[0] << endl;
-          /////////////
           break;
         case 1:
           image[i][j][1] = 128 + int(fileReadBuffer[end - count]);
@@ -112,33 +103,7 @@ void getPixlesFromBMP24(int end, int rows, int cols, char *fileReadBuffer, vecto
         // go to the next position in the buffer
         count++;
       }
-    }
   }
-  /////////////////
-
-  // int r, g, b;
-  // for(int i = 0; i < rows; i++){
-  //   for(int j = 0; j < cols; j++){
-  //     if(image[i][j][0] != r){
-  //       r = image[i][j][0];
-  //       cout << "vec " << i << " , "<< j << " : " << image[i][j][0]
-  //       << " , " << image[i][j][1] << " , " << image[i][j][2] << endl;
-  //     } 
-  //     if(image[i][j][1] != g){
-  //       g = image[i][j][1];
-  //       cout << "vec " << i << " , "<< j << " : " << image[i][j][0]
-  //       << " , " << image[i][j][1] << " , " << image[i][j][2] << endl;
-  //     }
-  //     if(image[i][j][2] != b){
-  //       b = image[i][j][2];
-  //       cout << "vec " << i << " , "<< j << " : " << image[i][j][0]
-  //       << " , " << image[i][j][1] << " , " << image[i][j][2] << endl;
-  //     }
-  //   }
-  // }
-
-  /////////////////
-  //return image;
 }
 
 void writeOutBmp24(char *fileBuffer, const char *nameOfFileToCreate, int bufferSize, vector<vector<vector<int>>> &image)
@@ -176,6 +141,50 @@ void writeOutBmp24(char *fileBuffer, const char *nameOfFileToCreate, int bufferS
   write.write(fileBuffer, bufferSize);
 }
 
+void smoothing(vector<vector<vector<int>>> &image, vector<vector<vector<int>>> &smoothed){
+  for(int i = 0; i < rows; i++){
+    for(int j = 0; j < cols; j++){
+      for(int k = 0; k < 3; k++){
+        if(i == 0){
+          if(j == 0){
+            smoothed[i][j][k] = (image[i][j][k] + image[i+1][j][k] + image[i][j+1][k] + image[i+1][j+1][k]) / 4;
+          }
+          else if(j == cols - 1){
+            smoothed[i][j][k] = (image[i][j][k] + image[i+1][j][k] + image[i][j-1][k] + image[i+1][j-1][k]) / 4;
+          }
+          else{
+            smoothed[i][j][k] = (image[i][j][k] + image[i+1][j][k] + image[i][j+1][k] + image[i][j-1][k] + image[i+1][j+1][k] + image[i+1][j-1][k]) / 6;
+          }
+        }
+        else if(i == rows - 1){
+          if(j == 0){
+            smoothed[i][j][k] = (image[i][j][k] + image[i-1][j][k] + image[i][j+1][k] + image[i-1][j+1][k]) / 4;
+          }
+          else if(j == cols - 1){
+            smoothed[i][j][k] = (image[i][j][k] + image[i-1][j][k] + image[i][j-1][k] + image[i-1][j-1][k]) / 4;
+          }
+          else{
+            smoothed[i][j][k] = (image[i][j][k] + image[i-1][j][k] + image[i][j+1][k] + image[i][j-1][k] + image[i-1][j+1][k] + image[i-1][j-1][k]) / 6;
+          }
+        }
+        else{
+          if(j == 0){
+            smoothed[i][j][k] = (image[i][j][k] + image[i+1][j][k] + image[i-1][j][k] + image[i][j+1][k] + image[i+1][j+1][k] + image[i-1][j+1][k]) / 6;
+          }
+          else if(j == cols - 1){
+            smoothed[i][j][k] = (image[i][j][k] + image[i+1][j][k] + image[i-1][j][k] + image[i][j-1][k] + image[i+1][j-1][k] + image[i-1][j-1][k]) / 6;
+          }
+          else{
+            //smoothed[i][j][k] = (image[i][j][k] + image[i+1][j][k]) /2;  //+ image[i][j][k] + image[i][j][k] + image[i][j][k] + image[i][j][k] + image[i][j][k] + image[i][j][k] + image[i][j][k]) / 9;
+            //cout << "s : " << smoothed[i][j][k] << " , i : " << image[i][j][k] << " , i+1 : " << image[i+1][j][k] << endl;
+            smoothed[i][j][k] = (image[i][j][k] + image[i+1][j][k] + image[i-1][j][k] + image[i][j+1][k] + image[i][j-1][k] + image[i+1][j+1][k] + image[i+1][j-1][k] + image[i-1][j+1][k] + image[i-1][j-1][k]) / 9;
+          }
+        }
+      }
+    }
+  }
+}
+
 int main(int argc, char *argv[])
 {
   char *fileBuffer;
@@ -189,24 +198,10 @@ int main(int argc, char *argv[])
 
   vector<int> a(3, 0);
   vector<vector<int>> temp(rows, a);
-  //vector<vector<int*>> image(cols, temp);
   vector<vector<vector<int>>> image(cols, temp);
-  // for(int i = 0; i < rows; i++){
-  //   vector<int*> temp;
-  //   for(int j = 0; j < cols; j++){
-  //     int a[3]= {};
-  //     temp.push_back(a); 
-  //   }
-  //   image.push_back(temp);
-  // }
-
-  ///////////////////////
-  // cout << rows << " , " << cols << endl;
-  // cout << bufferSize << endl;
-  ////////////////////
+  vector<vector<vector<int>>> smoothed(cols, temp);
 
   // read input file
-  //int end = rows*cols*3;
   getPixlesFromBMP24(bufferSize, rows, cols, fileBuffer, image);
 
   ///////////////
@@ -243,7 +238,7 @@ int main(int argc, char *argv[])
 
 
   // apply filters
-
+  smoothing(image, smoothed);
 
 
 
@@ -252,10 +247,7 @@ int main(int argc, char *argv[])
   int n = output_address.length() + 1;
   char out_file[n];
   strcpy(out_file, output_address.c_str());
-  writeOutBmp24(fileBuffer, out_file, bufferSize, image);
-
-
-
+  writeOutBmp24(fileBuffer, out_file, bufferSize, smoothed);
 
   return 0;
 }
