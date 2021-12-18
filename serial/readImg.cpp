@@ -5,6 +5,8 @@
 #include <cstring>
 #include <string>
 
+#define MAX 255
+
 using std::cout;
 using std::endl;
 using std::ifstream;
@@ -91,13 +93,13 @@ void getPixlesFromBMP24(int end, int rows, int cols, char *fileReadBuffer, vecto
         switch (k)
         {
         case 0:
-          image[i][j][0] = 128 + int(fileReadBuffer[end - count]);
+          image[i][j][0] = int(fileReadBuffer[end - count]);
           break;
         case 1:
-          image[i][j][1] = 128 + int(fileReadBuffer[end - count]);
+          image[i][j][1] = int(fileReadBuffer[end - count]);
           break;
         case 2:
-          image[i][j][2] = 128 + int(fileReadBuffer[end - count]);
+          image[i][j][2] = int(fileReadBuffer[end - count]);
           break;
         }
         // go to the next position in the buffer
@@ -125,13 +127,13 @@ void writeOutBmp24(char *fileBuffer, const char *nameOfFileToCreate, int bufferS
         switch (k)
         {
         case 0:
-          fileBuffer[bufferSize - count] = image[i][j][0] - 128;
+          fileBuffer[bufferSize - count] = char(image[i][j][0]);
           break;
         case 1:
-          fileBuffer[bufferSize - count] = image[i][j][1] - 128;
+          fileBuffer[bufferSize - count] = char(image[i][j][1]);
           break;
         case 2:
-          fileBuffer[bufferSize - count] = image[i][j][2] - 128;
+          fileBuffer[bufferSize - count] = char(image[i][j][2]);
           break;
         }
         // go to the next position in the buffer
@@ -185,6 +187,58 @@ void smoothing(vector<vector<vector<int>>> &image, vector<vector<vector<int>>> &
   }
 }
 
+void sepia(vector<vector<vector<int>>> &image, vector<vector<vector<int>>> &sepia_out){
+  for(int i = 0; i < rows; i++){
+    for(int j = 0; j < cols; j++){
+      sepia_out[i][j][0] = image[i][j][0] * 0.393 + image[i][j][1] * 0.769 + image[i][j][2] * 0.189;
+      sepia_out[i][j][1] = image[i][j][0] * 0.349 + image[i][j][1] * 0.686 + image[i][j][2] * 0.168;
+      sepia_out[i][j][2] = image[i][j][0] * 0.272 + image[i][j][1] * 0.534 + image[i][j][2] * 0.131;
+    }
+  }
+}
+
+void washed_out(vector<vector<vector<int>>> &image, vector<vector<vector<int>>> &washed){
+  int R_mean = 0, G_mean = 0, B_mean = 0;
+  int R_sum = 0, G_sum = 0, B_sum = 0;
+  for(int i = 0; i < rows; i++){
+    for(int j = 0; j < cols; j++){
+      R_sum += image[i][j][0];
+      G_sum += image[i][j][1];
+      B_sum += image[i][j][2];
+    }
+  }
+  int num = rows * cols;
+  R_mean = R_sum / num;
+  G_mean = G_sum / num;
+  B_mean = B_sum / num;
+  ///////////////
+  //cout << R_mean << " , " << G_mean << " , " << B_mean << " , " << endl;
+  /////////////
+  for(int i = 0; i < rows; i++){
+    for(int j = 0; j < cols; j++){
+      washed[i][j][0] = image[i][j][0] * 0.4 + R_mean * 0.6;
+      washed[i][j][1] = image[i][j][1] * 0.4 + G_mean * 0.6;
+      washed[i][j][2] = image[i][j][2] * 0.4 + B_mean * 0.6;
+      //washed[i][j][0] = R_mean * 0.6;
+      //washed[i][j][1] = G_mean * 0.6;
+      //washed[i][j][2] = B_mean * 0.6;
+    }
+  }
+}
+
+void add_lines(vector<vector<vector<int>>> &image, vector<vector<vector<int>>> &out){
+  for(int i = 0; i < rows; i++){
+    for(int j = 0; j < cols; j++){
+      if(i == j || (i-1) == j || (i+1) == j || i == (cols-j) || (i-1) == (cols-j) || (i+1) == (cols-j)){
+        out[i][j][0] = out[i][j][1] = out[i][j][2] = MAX;
+      }
+      else{
+        out[i][j] = image[i][j];
+      }
+    }
+  }
+}
+
 int main(int argc, char *argv[])
 {
   char *fileBuffer;
@@ -200,6 +254,9 @@ int main(int argc, char *argv[])
   vector<vector<int>> temp(rows, a);
   vector<vector<vector<int>>> image(cols, temp);
   vector<vector<vector<int>>> smoothed(cols, temp);
+  vector<vector<vector<int>>> sepia_out(cols, temp);
+  vector<vector<vector<int>>> washed(cols, temp);
+  vector<vector<vector<int>>> line_added(cols, temp);
 
   // read input file
   getPixlesFromBMP24(bufferSize, rows, cols, fileBuffer, image);
@@ -239,15 +296,23 @@ int main(int argc, char *argv[])
 
   // apply filters
   smoothing(image, smoothed);
+  sepia(image, sepia_out);
+  washed_out(image, washed);
+  add_lines(image, line_added);
 
-
+  //////////////////
+  // smoothing(image, smoothed);
+  // sepia(smoothed, sepia_out);
+  // washed_out(sepia_out, washed);
+  // add_lines(washed, line_added);
+  /////////////////////
 
 
   // write output file
   int n = output_address.length() + 1;
   char out_file[n];
   strcpy(out_file, output_address.c_str());
-  writeOutBmp24(fileBuffer, out_file, bufferSize, smoothed);
+  writeOutBmp24(fileBuffer, out_file, bufferSize, line_added);
 
   return 0;
 }
