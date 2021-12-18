@@ -4,6 +4,7 @@
 #include <vector>
 #include <cstring>
 #include <string>
+#include <time.h>
 
 #define MAX 255
 
@@ -241,6 +242,7 @@ void add_lines(vector<vector<vector<int>>> &image, vector<vector<vector<int>>> &
 
 int main(int argc, char *argv[])
 {
+  clock_t start = clock();
   char *fileBuffer;
   int bufferSize;
   char *fileName = argv[1];
@@ -259,46 +261,28 @@ int main(int argc, char *argv[])
   vector<vector<vector<int>>> line_added(cols, temp);
 
   // read input file
+  clock_t t1 = clock();
   getPixlesFromBMP24(bufferSize, rows, cols, fileBuffer, image);
-
-  ///////////////
-  // for(int i = 0; i < rows; i++){
-  //   for(int j = 0; j < cols; j++){
-  //     cout << "vec " << i << " , "<< j << " : " << image[i][j][0]
-  //     << " , " << image[i][j][1] << " , " << image[i][j][2] << endl; 
-  //   }
-  // }
-  // int r, g, b;
-  // for(int i = 0; i < rows; i++){
-  //   for(int j = 0; j < cols; j++){
-  //     if(image[i][j][0] != r){
-  //       r = image[i][j][0];
-  //       cout << "vec " << i << " , "<< j << " : " << image[i][j][0]
-  //       << " , " << image[i][j][1] << " , " << image[i][j][2] << endl;
-  //     } 
-  //     if(image[i][j][1] != g){
-  //       g = image[i][j][1];
-  //       cout << "vec " << i << " , "<< j << " : " << image[i][j][0]
-  //       << " , " << image[i][j][1] << " , " << image[i][j][2] << endl;
-  //     }
-  //     if(image[i][j][2] != b){
-  //       b = image[i][j][2];
-  //       cout << "vec " << i << " , "<< j << " : " << image[i][j][0]
-  //       << " , " << image[i][j][1] << " , " << image[i][j][2] << endl;
-  //     }
-  //   }
-  // }
-
-
-  /////////////////
-
-
+  clock_t t2 = clock();
+  cout << "Time of Reading from file (ms): " << (double)(t2 - t1) / CLOCKS_PER_SEC * 1000 << endl;
 
   // apply filters
+  clock_t t3 = clock();
   smoothing(image, smoothed);
+  clock_t t4 = clock();
+  cout << "Time of Smoothing Filter (ms): " << (double)(t4 - t3) / CLOCKS_PER_SEC * 1000 << endl;
+  clock_t t5 = clock();
   sepia(image, sepia_out);
+  clock_t t6 = clock();
+  cout << "Time of Sepia Filter (ms): " << (double)(t6 - t5) / CLOCKS_PER_SEC * 1000 << endl;
+  clock_t t7 = clock();
   washed_out(image, washed);
+  clock_t t8 = clock();
+  cout << "Time of Washed Out Filter (ms): " << (double)(t8 - t7) / CLOCKS_PER_SEC * 1000 << endl;
+  clock_t t9 = clock();
   add_lines(image, line_added);
+  clock_t t10 = clock();
+  cout << "Time of Add Line Filter (ms): " << (double)(t10 - t9) / CLOCKS_PER_SEC * 1000 << endl;
 
   //////////////////
   // smoothing(image, smoothed);
@@ -312,7 +296,12 @@ int main(int argc, char *argv[])
   int n = output_address.length() + 1;
   char out_file[n];
   strcpy(out_file, output_address.c_str());
+  clock_t t11 = clock();
   writeOutBmp24(fileBuffer, out_file, bufferSize, line_added);
+  clock_t t12 = clock();
+  cout << "Time of Writing in file (ms): " << (double)(t12 - t11) / CLOCKS_PER_SEC * 1000 << endl;
 
+  clock_t final = clock();
+  cout << "Serial Execution Time (ms): " << (double)(final - start) / CLOCKS_PER_SEC * 1000 << endl;
   return 0;
 }
