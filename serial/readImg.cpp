@@ -94,13 +94,13 @@ void getPixlesFromBMP24(int end, int rows, int cols, char *fileReadBuffer, vecto
         switch (k)
         {
         case 0:
-          image[i][j][0] = int(fileReadBuffer[end - count]);
+          image[i][j][0] = (unsigned char)fileReadBuffer[end - count];
           break;
         case 1:
-          image[i][j][1] = int(fileReadBuffer[end - count]);
+          image[i][j][1] = (unsigned char)fileReadBuffer[end - count];
           break;
         case 2:
-          image[i][j][2] = int(fileReadBuffer[end - count]);
+          image[i][j][2] = (unsigned char)fileReadBuffer[end - count];
           break;
         }
         // go to the next position in the buffer
@@ -128,13 +128,13 @@ void writeOutBmp24(char *fileBuffer, const char *nameOfFileToCreate, int bufferS
         switch (k)
         {
         case 0:
-          fileBuffer[bufferSize - count] = char(image[i][j][0]);
+          fileBuffer[bufferSize - count] = (unsigned char)image[i][j][0];
           break;
         case 1:
-          fileBuffer[bufferSize - count] = char(image[i][j][1]);
+          fileBuffer[bufferSize - count] = (unsigned char)image[i][j][1];
           break;
         case 2:
-          fileBuffer[bufferSize - count] = char(image[i][j][2]);
+          fileBuffer[bufferSize - count] = (unsigned char)image[i][j][2];
           break;
         }
         // go to the next position in the buffer
@@ -178,8 +178,6 @@ void smoothing(vector<vector<vector<int>>> &image, vector<vector<vector<int>>> &
             smoothed[i][j][k] = (image[i][j][k] + image[i+1][j][k] + image[i-1][j][k] + image[i][j-1][k] + image[i+1][j-1][k] + image[i-1][j-1][k]) / 6;
           }
           else{
-            //smoothed[i][j][k] = (image[i][j][k] + image[i+1][j][k]) /2;  //+ image[i][j][k] + image[i][j][k] + image[i][j][k] + image[i][j][k] + image[i][j][k] + image[i][j][k] + image[i][j][k]) / 9;
-            //cout << "s : " << smoothed[i][j][k] << " , i : " << image[i][j][k] << " , i+1 : " << image[i+1][j][k] << endl;
             smoothed[i][j][k] = (image[i][j][k] + image[i+1][j][k] + image[i-1][j][k] + image[i][j+1][k] + image[i][j-1][k] + image[i+1][j+1][k] + image[i+1][j-1][k] + image[i-1][j+1][k] + image[i-1][j-1][k]) / 9;
           }
         }
@@ -194,6 +192,11 @@ void sepia(vector<vector<vector<int>>> &image, vector<vector<vector<int>>> &sepi
       sepia_out[i][j][0] = image[i][j][0] * 0.393 + image[i][j][1] * 0.769 + image[i][j][2] * 0.189;
       sepia_out[i][j][1] = image[i][j][0] * 0.349 + image[i][j][1] * 0.686 + image[i][j][2] * 0.168;
       sepia_out[i][j][2] = image[i][j][0] * 0.272 + image[i][j][1] * 0.534 + image[i][j][2] * 0.131;
+      for(int k = 0; k < 3; k++){
+        if(sepia_out[i][j][k] > 255){
+          sepia_out[i][j][k] = 255;
+        }
+      }
     }
   }
 }
@@ -212,17 +215,11 @@ void washed_out(vector<vector<vector<int>>> &image, vector<vector<vector<int>>> 
   R_mean = R_sum / num;
   G_mean = G_sum / num;
   B_mean = B_sum / num;
-  ///////////////
-  //cout << R_mean << " , " << G_mean << " , " << B_mean << " , " << endl;
-  /////////////
   for(int i = 0; i < rows; i++){
     for(int j = 0; j < cols; j++){
       washed[i][j][0] = image[i][j][0] * 0.4 + R_mean * 0.6;
       washed[i][j][1] = image[i][j][1] * 0.4 + G_mean * 0.6;
       washed[i][j][2] = image[i][j][2] * 0.4 + B_mean * 0.6;
-      //washed[i][j][0] = R_mean * 0.6;
-      //washed[i][j][1] = G_mean * 0.6;
-      //washed[i][j][2] = B_mean * 0.6;
     }
   }
 }
@@ -261,47 +258,37 @@ int main(int argc, char *argv[])
   vector<vector<vector<int>>> line_added(cols, temp);
 
   // read input file
-  clock_t t1 = clock();
+  // clock_t t1 = clock();
   getPixlesFromBMP24(bufferSize, rows, cols, fileBuffer, image);
-  clock_t t2 = clock();
-  cout << "Time of Reading from file (ms): " << (double)(t2 - t1) / CLOCKS_PER_SEC * 1000 << endl;
-
+  // clock_t t2 = clock();
+  
   // apply filters
-  clock_t t3 = clock();
   smoothing(image, smoothed);
-  clock_t t4 = clock();
-  cout << "Time of Smoothing Filter (ms): " << (double)(t4 - t3) / CLOCKS_PER_SEC * 1000 << endl;
-  clock_t t5 = clock();
-  sepia(image, sepia_out);
-  clock_t t6 = clock();
-  cout << "Time of Sepia Filter (ms): " << (double)(t6 - t5) / CLOCKS_PER_SEC * 1000 << endl;
-  clock_t t7 = clock();
-  washed_out(image, washed);
-  clock_t t8 = clock();
-  cout << "Time of Washed Out Filter (ms): " << (double)(t8 - t7) / CLOCKS_PER_SEC * 1000 << endl;
-  clock_t t9 = clock();
-  add_lines(image, line_added);
-  clock_t t10 = clock();
-  cout << "Time of Add Line Filter (ms): " << (double)(t10 - t9) / CLOCKS_PER_SEC * 1000 << endl;
-
-  //////////////////
-  // smoothing(image, smoothed);
-  // sepia(smoothed, sepia_out);
-  // washed_out(sepia_out, washed);
-  // add_lines(washed, line_added);
-  /////////////////////
-
+  // clock_t t3 = clock();
+  sepia(smoothed, sepia_out);
+  // clock_t t4 = clock();
+  washed_out(sepia_out, washed);
+  // clock_t t5 = clock();
+  add_lines(washed, line_added);
+  // clock_t t6 = clock();
 
   // write output file
   int n = output_address.length() + 1;
   char out_file[n];
   strcpy(out_file, output_address.c_str());
-  clock_t t11 = clock();
+  // clock_t t7 = clock();
   writeOutBmp24(fileBuffer, out_file, bufferSize, line_added);
-  clock_t t12 = clock();
-  cout << "Time of Writing in file (ms): " << (double)(t12 - t11) / CLOCKS_PER_SEC * 1000 << endl;
-
   clock_t final = clock();
-  cout << "Serial Execution Time (ms): " << (double)(final - start) / CLOCKS_PER_SEC * 1000 << endl;
+
+  cout << (double)(final - start) / CLOCKS_PER_SEC * 1000 << endl;
+
+  // for finding hotspots:
+  // cout << "Time of Reading from file (ms): " << (double)(t2 - t1) / CLOCKS_PER_SEC * 1000 << endl;
+  // cout << "Time of Smoothing Filter (ms): " << (double)(t3 - t2) / CLOCKS_PER_SEC * 1000 << endl;
+  // cout << "Time of Sepia Filter (ms): " << (double)(t4 - t3) / CLOCKS_PER_SEC * 1000 << endl;
+  // cout << "Time of Washed Out Filter (ms): " << (double)(t5 - t4) / CLOCKS_PER_SEC * 1000 << endl;
+  // cout << "Time of Add Line Filter (ms): " << (double)(t6 - t5) / CLOCKS_PER_SEC * 1000 << endl;
+  // cout << "Time of Writing in file (ms): " << (double)(final - t7) / CLOCKS_PER_SEC * 1000 << endl;
+  // cout << "Serial Execution Time (ms): " << (double)(final - start) / CLOCKS_PER_SEC * 1000 << endl;
   return 0;
 }
