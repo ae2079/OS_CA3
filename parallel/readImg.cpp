@@ -1,14 +1,26 @@
 #include <iostream>
 #include <unistd.h>
 #include <fstream>
+#include <vector>
+#include <cstring>
+#include <string>
+#include <time.h>
+#include <pthread.h>
+
+#define MAX 255
+#define NUM_OF_THREADS 4
 
 using std::cout;
 using std::endl;
 using std::ifstream;
 using std::ofstream;
 
+using namespace std;
+
+const string output_address = "output.bmp";
+
 #pragma pack(1)
-#pragma once
+// #pragma once
 
 typedef int LONG;
 typedef unsigned short WORD;
@@ -37,6 +49,21 @@ typedef struct tagBITMAPINFOHEADER
   DWORD biClrUsed;
   DWORD biClrImportant;
 } BITMAPINFOHEADER, *PBITMAPINFOHEADER;
+
+struct T_data{
+  int num;
+  vector<vector<vector<int>>> *in;
+  vector<vector<vector<int>>> *out;
+};
+
+struct T_data_w{
+  int num;
+  vector<vector<vector<int>>> *in;
+  vector<vector<vector<int>>> *out;
+  int R_mean;
+  int G_mean;
+  int B_mean;
+};
 
 int rows;
 int cols;
@@ -71,7 +98,7 @@ bool fillAndAllocate(char *&buffer, const char *fileName, int &rows, int &cols, 
   }
 }
 
-void getPixlesFromBMP24(int end, int rows, int cols, char *fileReadBuffer)
+void getPixlesFromBMP24(int end, int rows, int cols, char *fileReadBuffer, vector<vector<vector<int>>> &image)
 {
   int count = 1;
   int extra = cols % 4;
@@ -84,21 +111,22 @@ void getPixlesFromBMP24(int end, int rows, int cols, char *fileReadBuffer)
         switch (k)
         {
         case 0:
-          // fileReadBuffer[end - count] is the red value
+          image[i][j][0] = (unsigned char)fileReadBuffer[end - count];
           break;
         case 1:
-          // fileReadBuffer[end - count] is the green value
+          image[i][j][1] = (unsigned char)fileReadBuffer[end - count];
           break;
         case 2:
-          // fileReadBuffer[end - count] is the blue value
+          image[i][j][2] = (unsigned char)fileReadBuffer[end - count];
           break;
-        // go to the next position in the buffer
         }
+        // go to the next position in the buffer
+        count++;
       }
   }
 }
 
-void writeOutBmp24(char *fileBuffer, const char *nameOfFileToCreate, int bufferSize)
+void writeOutBmp24(char *fileBuffer, const char *nameOfFileToCreate, int bufferSize, vector<vector<vector<int>>> &image)
 {
   std::ofstream write(nameOfFileToCreate);
   if (!write)
@@ -117,23 +145,233 @@ void writeOutBmp24(char *fileBuffer, const char *nameOfFileToCreate, int bufferS
         switch (k)
         {
         case 0:
-          // write red value in fileBuffer[bufferSize - count]
+          fileBuffer[bufferSize - count] = (unsigned char)image[i][j][0];
           break;
         case 1:
-          // write green value in fileBuffer[bufferSize - count]
+          fileBuffer[bufferSize - count] = (unsigned char)image[i][j][1];
           break;
         case 2:
-          // write blue value in fileBuffer[bufferSize - count]
+          fileBuffer[bufferSize - count] = (unsigned char)image[i][j][2];
           break;
-        // go to the next position in the buffer
         }
+        // go to the next position in the buffer
+        count++;
       }
   }
   write.write(fileBuffer, bufferSize);
 }
 
+void *smooth_thread(void *in){
+  pthread_detach(pthread_self());
+  struct T_data *data = (struct T_data *)in;
+  //cout << data->num << endl;
+  int start = (rows/NUM_OF_THREADS) * data->num;
+  int end = start + (rows/NUM_OF_THREADS);
+  //cout<< start << " , " << end << endl;
+  for(int i = start; i < end; i++){
+    for(int j = 0; j < cols; j++){
+      for(int k = 0; k < 3; k++){
+        if(i == 0){
+          if(j == 0){
+            (*data->out)[i][j][k] = ((*data->in)[i][j][k] + (*data->in)[i+1][j][k] + (*data->in)[i][j+1][k] + (*data->in)[i+1][j+1][k]) / 4;
+          }
+          else if(j == cols - 1){
+            (*data->out)[i][j][k] = ((*data->in)[i][j][k] + (*data->in)[i+1][j][k] + (*data->in)[i][j-1][k] + (*data->in)[i+1][j-1][k]) / 4;
+          }
+          else{
+            (*data->out)[i][j][k] = ((*data->in)[i][j][k] + (*data->in)[i+1][j][k] + (*data->in)[i][j+1][k] + (*data->in)[i][j-1][k] + (*data->in)[i+1][j+1][k] + (*data->in)[i+1][j-1][k]) / 6;
+          }
+        }
+        else if(i == rows - 1){
+          if(j == 0){
+            (*data->out)[i][j][k] = ((*data->in)[i][j][k] + (*data->in)[i-1][j][k] + (*data->in)[i][j+1][k] + (*data->in)[i-1][j+1][k]) / 4;
+          }
+          else if(j == cols - 1){
+            (*data->out)[i][j][k] = ((*data->in)[i][j][k] + (*data->in)[i-1][j][k] + (*data->in)[i][j-1][k] + (*data->in)[i-1][j-1][k]) / 4;
+          }
+          else{
+            (*data->out)[i][j][k] = ((*data->in)[i][j][k] + (*data->in)[i-1][j][k] + (*data->in)[i][j+1][k] + (*data->in)[i][j-1][k] + (*data->in)[i-1][j+1][k] + (*data->in)[i-1][j-1][k]) / 6;
+          }
+        }
+        else{
+          if(j == 0){
+            (*data->out)[i][j][k] = ((*data->in)[i][j][k] + (*data->in)[i+1][j][k] + (*data->in)[i-1][j][k] + (*data->in)[i][j+1][k] + (*data->in)[i+1][j+1][k] + (*data->in)[i-1][j+1][k]) / 6;
+          }
+          else if(j == cols - 1){
+            (*data->out)[i][j][k] = ((*data->in)[i][j][k] + (*data->in)[i+1][j][k] + (*data->in)[i-1][j][k] + (*data->in)[i][j-1][k] + (*data->in)[i+1][j-1][k] + (*data->in)[i-1][j-1][k]) / 6;
+          }
+          else{
+            (*data->out)[i][j][k] = ((*data->in)[i][j][k] + (*data->in)[i+1][j][k] + (*data->in)[i-1][j][k] + (*data->in)[i][j+1][k] + (*data->in)[i][j-1][k] + (*data->in)[i+1][j+1][k] + (*data->in)[i+1][j-1][k] + (*data->in)[i-1][j+1][k] + (*data->in)[i-1][j-1][k]) / 9;
+          }
+        }
+      }
+    }
+  }
+  pthread_exit(NULL);
+  //return NULL;
+}
+
+void smoothing(vector<vector<vector<int>>> &image, vector<vector<vector<int>>> &smoothed){
+  vector<pthread_t> ids;
+  for(int i = 0; i < NUM_OF_THREADS; i++){
+    //cout << "Hello" << i << endl;
+    pthread_t ptid;
+    struct T_data *data = new struct T_data;
+    data->in = &image;
+    data->out = &smoothed;
+    data->num = i;
+    pthread_create(&ptid, NULL, &smooth_thread, data);
+    ids.push_back(ptid);
+    //cout << "bye" << i << endl;
+  }
+  for(int i = 0; i < NUM_OF_THREADS; i++){
+    //cout << "join" << i << endl;
+    pthread_join(ids[i], NULL);
+    //pthread_exit(NULL);
+    //cout << "end" << i << endl;
+  }
+  // pthread_join(ptid, NULL);
+  //pthread_exit(NULL);
+}
+
+void *sepia_thread(void *in){
+  pthread_detach(pthread_self());
+  struct T_data *data = (struct T_data *)in;
+  //cout << data->num << endl;
+  int start = (rows/NUM_OF_THREADS) * data->num;
+  int end = start + (rows/NUM_OF_THREADS);
+  for(int i = start; i < end; i++){
+    for(int j = 0; j < cols; j++){
+      (*data->out)[i][j][0] = (*data->in)[i][j][0] * 0.393 + (*data->in)[i][j][1] * 0.769 + (*data->in)[i][j][2] * 0.189;
+      (*data->out)[i][j][1] = (*data->in)[i][j][0] * 0.349 + (*data->in)[i][j][1] * 0.686 + (*data->in)[i][j][2] * 0.168;
+      (*data->out)[i][j][2] = (*data->in)[i][j][0] * 0.272 + (*data->in)[i][j][1] * 0.534 + (*data->in)[i][j][2] * 0.131;
+      for(int k = 0; k < 3; k++){
+        if((*data->out)[i][j][k] > MAX){
+          (*data->out)[i][j][k] = MAX;
+        }
+      }
+    }
+  }
+  pthread_exit(NULL);
+}
+
+void sepia(vector<vector<vector<int>>> &image, vector<vector<vector<int>>> &sepia_out){
+  vector<pthread_t> ids;
+  for(int i = 0; i < NUM_OF_THREADS; i++){
+    //cout << "Hello" << i << endl;
+    pthread_t ptid;
+    struct T_data *data = new struct T_data;
+    data->in = &image;
+    data->out = &sepia_out;
+    data->num = i;
+    pthread_create(&ptid, NULL, &sepia_thread, data);
+    ids.push_back(ptid);
+    //cout << "bye" << i << endl;
+  }
+  for(int i = 0; i < NUM_OF_THREADS; i++){
+    //cout << "join" << i << endl;
+    pthread_join(ids[i], NULL);
+    //pthread_exit(NULL);
+    //cout << "end" << i << endl;
+  }
+}
+
+void *wash_thread(void *in){
+  pthread_detach(pthread_self());
+  struct T_data_w *data = (struct T_data_w *)in;
+  //cout << data->num << endl;
+  int start = (rows/NUM_OF_THREADS) * data->num;
+  int end = start + (rows/NUM_OF_THREADS);
+  for(int i = start; i < end; i++){
+    for(int j = 0; j < cols; j++){
+      (*data->out)[i][j][0] = (*data->in)[i][j][0] * 0.4 + data->R_mean * 0.6;
+      (*data->out)[i][j][1] = (*data->in)[i][j][1] * 0.4 + data->G_mean * 0.6;
+      (*data->out)[i][j][2] = (*data->in)[i][j][2] * 0.4 + data->B_mean * 0.6;
+    }
+  }
+  pthread_exit(NULL);
+}
+
+void washed_out(vector<vector<vector<int>>> &image, vector<vector<vector<int>>> &washed){
+  int R_mean = 0, G_mean = 0, B_mean = 0;
+  int R_sum = 0, G_sum = 0, B_sum = 0;
+  for(int i = 0; i < rows; i++){
+    for(int j = 0; j < cols; j++){
+      R_sum += image[i][j][0];
+      G_sum += image[i][j][1];
+      B_sum += image[i][j][2];
+    }
+  }
+  int num = rows * cols;
+  R_mean = R_sum / num;
+  G_mean = G_sum / num;
+  B_mean = B_sum / num;
+  vector<pthread_t> ids;
+  for(int i = 0; i < NUM_OF_THREADS; i++){
+    //cout << "Hello" << i << endl;
+    pthread_t ptid;
+    struct T_data_w *data = new struct T_data_w;
+    data->in = &image;
+    data->out = &washed;
+    data->num = i;
+    data->R_mean = R_mean;
+    data->G_mean = G_mean;
+    data->B_mean = B_mean;
+    pthread_create(&ptid, NULL, &wash_thread, data);
+    ids.push_back(ptid);
+    //cout << "bye" << i << endl;
+  }
+  for(int i = 0; i < NUM_OF_THREADS; i++){
+    //cout << "join" << i << endl;
+    pthread_join(ids[i], NULL);
+    //pthread_exit(NULL);
+    //cout << "end" << i << endl;
+  }
+}
+
+void *add_line_thread(void *in){
+  pthread_detach(pthread_self());
+  struct T_data *data = (struct T_data *)in;
+  //cout << data->num << endl;
+  int start = (rows/NUM_OF_THREADS) * data->num;
+  int end = start + (rows/NUM_OF_THREADS);
+  for(int i = start; i < end; i++){
+    for(int j = 0; j < cols; j++){
+      if(i == j || (i-1) == j || (i+1) == j || i == (cols-j) || (i-1) == (cols-j) || (i+1) == (cols-j)){
+        (*data->out)[i][j][0] = (*data->out)[i][j][1] = (*data->out)[i][j][2] = MAX;
+      }
+      else{
+        (*data->out)[i][j] = (*data->in)[i][j];
+      }
+    }
+  }
+  pthread_exit(NULL);
+}
+
+void add_lines(vector<vector<vector<int>>> &image, vector<vector<vector<int>>> &out){
+  vector<pthread_t> ids;
+  for(int i = 0; i < NUM_OF_THREADS; i++){
+    //cout << "Hello" << i << endl;
+    pthread_t ptid;
+    struct T_data *data = new struct T_data;
+    data->in = &image;
+    data->out = &out;
+    data->num = i;
+    pthread_create(&ptid, NULL, &add_line_thread, data);
+    ids.push_back(ptid);
+    //cout << "bye" << i << endl;
+  }
+  for(int i = 0; i < NUM_OF_THREADS; i++){
+    //cout << "join" << i << endl;
+    pthread_join(ids[i], NULL);
+    //pthread_exit(NULL);
+    //cout << "end" << i << endl;
+  }
+}
+
 int main(int argc, char *argv[])
 {
+  clock_t start = clock();
   char *fileBuffer;
   int bufferSize;
   char *fileName = argv[1];
@@ -143,9 +381,46 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  // read input file
-  // apply filters
-  // write output file
+  vector<int> a(3, 0);
+  vector<vector<int>> temp(rows, a);
+  vector<vector<vector<int>>> image(cols, temp);
+  vector<vector<vector<int>>> smoothed(cols, temp);
+  vector<vector<vector<int>>> sepia_out(cols, temp);
+  vector<vector<vector<int>>> washed(cols, temp);
+  vector<vector<vector<int>>> line_added(cols, temp);
 
+  // read input file
+  // clock_t t1 = clock();
+  getPixlesFromBMP24(bufferSize, rows, cols, fileBuffer, image);
+  clock_t t2 = clock();
+  
+  // apply filters
+  smoothing(image, smoothed);
+  clock_t t3 = clock();
+  sepia(smoothed, sepia_out);
+  clock_t t4 = clock();
+  washed_out(sepia_out, washed);
+  clock_t t5 = clock();
+  add_lines(washed, line_added);
+  clock_t t6 = clock();
+
+  // write output file
+  int n = output_address.length() + 1;
+  char out_file[n];
+  strcpy(out_file, output_address.c_str());
+  // clock_t t7 = clock();
+  writeOutBmp24(fileBuffer, out_file, bufferSize, line_added);
+  clock_t final = clock();
+
+  cout << (double)(final - start) / CLOCKS_PER_SEC * 1000 << endl;
+
+  // for finding hotspots:
+  // cout << "Time of Reading from file (ms): " << (double)(t2 - t1) / CLOCKS_PER_SEC * 1000 << endl;
+  cout << "Time of Smoothing Filter (ms): " << (double)(t3 - t2) / CLOCKS_PER_SEC * 1000 << endl;
+  cout << "Time of Sepia Filter (ms): " << (double)(t4 - t3) / CLOCKS_PER_SEC * 1000 << endl;
+  cout << "Time of Washed Out Filter (ms): " << (double)(t5 - t4) / CLOCKS_PER_SEC * 1000 << endl;
+  cout << "Time of Add Line Filter (ms): " << (double)(t6 - t5) / CLOCKS_PER_SEC * 1000 << endl;
+  // cout << "Time of Writing in file (ms): " << (double)(final - t7) / CLOCKS_PER_SEC * 1000 << endl;
+  // cout << "Serial Execution Time (ms): " << (double)(final - start) / CLOCKS_PER_SEC * 1000 << endl;
   return 0;
 }
